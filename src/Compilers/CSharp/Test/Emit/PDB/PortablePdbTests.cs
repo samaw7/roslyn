@@ -21,7 +21,6 @@ using Microsoft.CodeAnalysis.Test.Utilities;
 using Roslyn.Test.Utilities;
 using Xunit;
 
-using Microsoft.CodeAnalysis.CSharp.Symbols;
 namespace Microsoft.CodeAnalysis.CSharp.UnitTests.PDB
 {
     public class PortablePdbTests : CSharpPDBTestBase
@@ -901,10 +900,9 @@ public class Program
 
             var typeC = c2.GetTypeByMetadataName("C");
             Symbol symbol = typeC.GetMethod("F2");
-            //symbol = (PEMethodSymbol)symbol;
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000002, MetadataTokens.GetToken(docList[0]));
 
             // go through all methods and collect documents.
@@ -961,7 +959,7 @@ public class Program
             //symbol = (PEMethodSymbol)symbol;
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000001, MetadataTokens.GetToken(docList[0]));
         }
 
@@ -1019,7 +1017,7 @@ public class Program
             Symbol symbol = typeC.GetField("str");
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000001, MetadataTokens.GetToken(docList[0]));
         }
 
@@ -1074,7 +1072,7 @@ public class Program
             Symbol symbol = typeC.GetProperty("str");
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000001, MetadataTokens.GetToken(docList[0]));
         }
 
@@ -1129,7 +1127,7 @@ public class Program
             Symbol symbol = typeC.GetEvent("ev");
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000001, MetadataTokens.GetToken(docList[0]));
         }
         // two more test cases one for default and implicilty events
@@ -1186,7 +1184,7 @@ public class Program
             Symbol symbol = c2.GetTypeByMetadataName("C");
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000001, MetadataTokens.GetToken(docList[0]));
         }
 
@@ -1238,7 +1236,7 @@ public partial class D
             Symbol symbol = c2.GetTypeByMetadataName("C");
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000001, MetadataTokens.GetToken(docList[0]));
             Assert.Equal(0x30000002, MetadataTokens.GetToken(docList[1]));
         }
@@ -1296,7 +1294,7 @@ public class Program
             Symbol symbol = typeC.GetMethod("F1");
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000001, MetadataTokens.GetToken(docList[0]));
             Assert.Equal(0x30000002, MetadataTokens.GetToken(docList[1]));
         }

@@ -12,11 +12,12 @@ using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.CodeAnalysis.CSharp.Symbols;
 using Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE;
 using Microsoft.CodeAnalysis.Debugging;
 using Microsoft.CodeAnalysis.Emit;
 
-namespace Microsoft.CodeAnalysis.CSharp.Symbols
+namespace Microsoft.CodeAnalysis.CSharp
 {
     public static class SymbolSourceFileFinder
     {
