@@ -21,6 +21,7 @@ using Microsoft.CodeAnalysis.Test.Utilities;
 using Roslyn.Test.Utilities;
 using Xunit;
 
+using Microsoft.CodeAnalysis.CSharp.Symbols;
 namespace Microsoft.CodeAnalysis.CSharp.UnitTests.PDB
 {
     public class PortablePdbTests : CSharpPDBTestBase
@@ -793,163 +794,6 @@ partial class three
             }
         }
 
-        private bool AddDocumentsfromMethodDebugInformation(MethodDefinitionHandle methodHandle, MetadataReader pdbReader, List<DocumentHandle> docList)
-        {
-
-            var debugInfo = pdbReader.GetMethodDebugInformation(methodHandle);
-            if (!debugInfo.Document.IsNil && docList.Count < 1)
-            {
-                // duplicates empty or not :: x
-                docList.Add(debugInfo.Document);
-                return true;
-            }
-
-            if (!debugInfo.SequencePointsBlob.IsNil)
-            {
-
-                // check duplicates :: x
-                foreach (var point in debugInfo.GetSequencePoints())
-                {
-                    if (!point.Document.IsNil)
-                    {
-                        // Hash set instead of list for time. :: x
-                        if (!docList.Contains(point.Document))
-                        {
-                            docList.Add(point.Document);
-                        }
-                    }
-
-                }
-                return true;
-            }
-            return false;
-        }
-
-        private bool AddTypeDocumentsInCustomDebugInformation(TypeDefinitionHandle typeHandle, MetadataReader pdbReader, List<DocumentHandle> docList)
-        {
-            foreach (var handle in pdbReader.GetCustomDebugInformation(typeHandle))
-            {
-                var typeId = pdbReader.GetCustomDebugInformation(handle).Parent;
-
-                if (((TypeDefinitionHandle)typeId).Equals(typeHandle))
-                {
-                    var blob = pdbReader.GetCustomDebugInformation(handle).Value;
-                    var reader = pdbReader.GetBlobReader(blob);
-                    while (reader.RemainingBytes > 0)
-                    {
-                        docList.Add(MetadataTokens.DocumentHandle(reader.ReadCompressedInteger()));
-                    }
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private void AddTypeDocuments(PENamedTypeSymbol typeSymbol, MetadataReader pdbReader, List<DocumentHandle> docList)
-        {
-            if (AddTypeDocumentsInCustomDebugInformation(typeSymbol.Handle, pdbReader, docList))
-            {
-                return;
-            }
-            foreach (var typeMethod in typeSymbol.GetMethodsToEmit())
-            {
-                // Test case where method does not have body, where can you find document?
-                // duplicate 
-                if (AddDocumentsfromMethodDebugInformation(((PEMethodSymbol)typeMethod).Handle, pdbReader, docList))
-                {
-                }
-            }
-        }
-
-        private List<DocumentHandle> FindSourceDocuments(Symbol symbol, MetadataReader pdbReader)
-        {
-            var docList = new List<DocumentHandle>();
-            switch (symbol.Kind)
-            {
-                case SymbolKind.Method:
-                    var method = (PEMethodSymbol)symbol;
-                    if (AddDocumentsfromMethodDebugInformation(method.Handle, pdbReader, docList))
-                    {
-                    }
-                    else
-                    {
-                        var typeM = (PENamedTypeSymbol)(method.ContainingType);
-                        AddTypeDocumentsInCustomDebugInformation(typeM.Handle, pdbReader, docList);
-                    }
-                    break;
-                case SymbolKind.Field:
-                    var field = (PEFieldSymbol)symbol;
-                    var typeF = (PENamedTypeSymbol)field.ContainingType;
-                    AddTypeDocuments(typeF, pdbReader, docList);
-                    break;
-                case SymbolKind.Property:
-                    var propertyMethod = (PEMethodSymbol)((PEPropertySymbol)symbol).GetMethod;
-                    if (propertyMethod.Equals(null))
-                    {
-                        propertyMethod = (PEMethodSymbol)((PEPropertySymbol)symbol).SetMethod;
-                        if (propertyMethod.Equals(null))
-                        {
-                            // throw error
-                        }
-                    }
-                    // check get method if null, use set vice versa. Also check for bad metadata. :: x
-                    AddDocumentsfromMethodDebugInformation(propertyMethod.Handle, pdbReader, docList);
-                    break;
-                case SymbolKind.Event:
-                    var eventMethod = (PEMethodSymbol)((PEEventSymbol)symbol).AddMethod;
-                    if (AddDocumentsfromMethodDebugInformation(eventMethod.Handle, pdbReader, docList) && !eventMethod.Equals(null)) { }
-                    else
-                    {
-                        eventMethod = (PEMethodSymbol)((PEEventSymbol)symbol).RemoveMethod;
-                        if (AddDocumentsfromMethodDebugInformation(eventMethod.Handle, pdbReader, docList) && !eventMethod.Equals(null)) { }
-                        else
-                        {
-                            var typeE = (PENamedTypeSymbol)(eventMethod.ContainingType);
-                            AddTypeDocumentsInCustomDebugInformation(typeE.Handle, pdbReader, docList);
-                        }
-                    }
-                    break;
-                case SymbolKind.NamedType:
-                    var typeT = (PENamedTypeSymbol)symbol;
-                    AddTypeDocuments(typeT, pdbReader, docList);
-                    break;
-                case SymbolKind.Parameter:
-                    var parameterSymbol = (PEParameterSymbol)symbol;
-                    var parameterContainingSymbol = parameterSymbol.ContainingSymbol;
-                    switch (parameterContainingSymbol.Kind)
-                    {
-                        case SymbolKind.Method:
-                            var methodP = (PEMethodSymbol)parameterContainingSymbol;
-                            if (!AddDocumentsfromMethodDebugInformation(methodP.Handle, pdbReader, docList))
-                            {
-                                var typeM = (PENamedTypeSymbol)(methodP.ContainingType);
-                                AddTypeDocuments(typeM, pdbReader, docList);
-                            }
-                            break;
-                        case SymbolKind.Property:
-                            var property = (PEPropertySymbol)parameterContainingSymbol;
-                            var propertyMethodP = (PEMethodSymbol)(property.GetMethod ?? property.SetMethod);
-                            if (propertyMethodP != null)
-                            {
-                                AddDocumentsfromMethodDebugInformation(propertyMethodP.Handle, pdbReader, docList);
-                            }
-                            break;
-                        default:
-                            // error message
-
-                            break;
-
-                    }
-                    // check kind of symbol, property or methods :: x
-                    break;
-                // Parameter :: x
-                default:
-                    // error message for incorrect type
-                    break;
-            }
-
-            return docList;
-        }
         [Fact]
         public void TestTypetoDocumentNavigation()
         {
@@ -1004,7 +848,7 @@ public class Program
             //symbol = (PEMethodSymbol)symbol;
             using var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             var pdbReader = provider.GetMetadataReader();
-            var docList = FindSourceDocuments(symbol, pdbReader);
+            var docList = SymbolSourceFileFinder.FindSourceDocuments(symbol, pdbReader);
             Assert.Equal(0x30000002, MetadataTokens.GetToken(docList[0]));
 
             // go through all methods and collect documents.
